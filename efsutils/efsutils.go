@@ -16,7 +16,7 @@ func Create(region, name string, subnets []string, securityGroups []string, perf
 	session, err := awsSession.NewSession(&aws.Config{Region: aws.String(region)})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to create filesystem: %s", err)
+		return "", fmt.Errorf("failed to create session: %s", err)
 	}
 
 	var (
