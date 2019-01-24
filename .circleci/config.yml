@@ -1,0 +1,53 @@
+version: 2
+
+prod_filters: &prod_filters # ignore any commit on any branch by default
+  branches:
+    ignore: /.*/
+  # only act on version tags
+  tags:
+    only:
+      - /^[0-9]+\.[0-9]+\.[0-9]+$/
+
+jobs:
+  test:
+    docker:
+      - image: golang:1.11.2
+    working_directory: /go/src/github.com/CreditSenseAU/k8s-aws-efs
+    steps:
+      - checkout
+      - run: |
+          GO111MODULE=off go get -u golang.org/x/lint/golint
+          make lint
+          make vet
+          make cover
+  build:
+    environment:
+      IMAGE_NAME: creditsensedevops/k8s-aws-efs
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build Docker image
+          command: |
+            echo $CIRCLE_TAG > VERSION.txt
+            docker build --rm --force-rm -t $IMAGE_NAME:$CIRCLE_TAG -f Dockerfile .
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            docker push $IMAGE_NAME:$CIRCLE_TAG
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
+  build-master:
+    jobs:
+      - test:
+          filters: *prod_filters
+      - build:
+          requires:
+            - test
+          filters: *prod_filters
+          context: Docker
